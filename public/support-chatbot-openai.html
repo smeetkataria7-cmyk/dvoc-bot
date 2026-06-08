@@ -1,0 +1,400 @@
+<!--
+  CUSTOMER SUPPORT CHATBOT WIDGET
+  ================================
+  Drop this file into your project and include it in your webpage:
+    <script src="support-chatbot.html"></script>    ← won't work for HTML files
+  
+  BEST WAY TO USE:
+  Copy everything inside <style> and the two <div>s and the <script>
+  into your existing webpage's HTML. Or load via an iframe:
+    <iframe src="support-chatbot.html" style="position:fixed;bottom:0;right:0;border:none;width:380px;height:500px;z-index:9999;background:transparent;"></iframe>
+
+  CUSTOMISE:
+  - Change "Support" and the subtitle in #chat-header
+  - Change the system prompt in the fetch() call to match your business
+  - Change #534AB7 to your brand color (3 occurrences)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Support Chat Widget</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  #chat-bubble {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+  }
+
+  #bubble-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #534AB7;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(83,74,183,0.4);
+    transition: transform 0.15s;
+  }
+  #bubble-btn:hover { transform: scale(1.07); }
+  #bubble-btn i { font-size: 26px; color: #fff; }
+
+  #chat-window {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    width: 340px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 16px;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+    max-height: 480px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  #chat-window.open { display: flex; }
+
+  #chat-header {
+    background: #534AB7;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #chat-header .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #chat-header .avatar i { font-size: 20px; color: #fff; }
+  #chat-header .info p { color: #fff; font-size: 15px; font-weight: 600; }
+  #chat-header .info span { color: rgba(255,255,255,0.75); font-size: 12px; }
+
+  #chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #fafafa;
+  }
+
+  .msg {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .msg.bot {
+    background: #fff;
+    color: #222;
+    border: 1px solid #eee;
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .msg.user {
+    background: #534AB7;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    align-self: flex-end;
+  }
+
+  .typing {
+    display: flex; gap: 5px; align-items: center;
+    padding: 10px 14px;
+    background: #fff; border: 1px solid #eee;
+    border-radius: 16px; border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #aaa; animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,60%,100%{opacity:0.2} 30%{opacity:1} }
+
+  #chat-input-row {
+    display: flex; gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid #eee;
+    background: #fff;
+  }
+  #chat-input-row input {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 9px 14px;
+    font-size: 14px;
+    outline: none;
+    background: #fff;
+    color: #222;
+  }
+  #chat-input-row input:focus { border-color: #534AB7; }
+  #send-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #534AB7; border: none;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #send-btn i { font-size: 17px; color: #fff; }
+</style>
+</head>
+<body>
+<div id="api-warning" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff4444;color:#fff;text-align:center;padding:10px;font-size:14px;z-index:99999;">
+  ⚠️ API Key missing! Open the HTML file and paste your Anthropic API key where it says YOUR_API_KEY_HERE
+</div>
+<script>
+  if (!window.__dvoc_key_checked) {
+    window.__dvoc_key_checked = true;
+    window.addEventListener('DOMContentLoaded', () => {
+      // check after script runs
+      setTimeout(() => {
+        const k = typeof ANTHROPIC_API_KEY !== 'undefined' ? ANTHROPIC_API_KEY : '';
+        if (!k || k === 'YOUR_API_KEY_HERE') {
+          document.getElementById('api-warning').style.display = 'block';
+        }
+      }, 500);
+    });
+  }
+</script>
+
+<div id="chat-bubble">
+  <div id="chat-window">
+    <div id="chat-header">
+      <div class="avatar"><i class="ti ti-headset"></i></div>
+      <div class="info">
+        <p>DVOC Support</p>
+        <span>Ask us about courses &amp; admissions</span>
+      </div>
+    </div>
+    <div id="chat-messages">
+      <div class="msg bot">Hi! 👋 Welcome to DVOC Institute. How can I help you today? Ask me about our courses, batches, or admissions!</div>
+    </div>
+    <div id="chat-input-row">
+      <input type="text" id="user-input" placeholder="Type a message…" />
+      <button id="send-btn" aria-label="Send"><i class="ti ti-send"></i></button>
+    </div>
+  </div>
+  <button id="bubble-btn" aria-label="Open support chat">
+    <i class="ti ti-message-circle"></i>
+  </button>
+</div>
+
+<script>
+  const SYSTEM_PROMPT = `You are a friendly, knowledgeable support assistant for DVOC Institute. Answer warmly and concisely. Always encourage students. Never make up information — if unsure, direct them to call +91 7021733916 or email info@dvoc.in.
+
+=== ABOUT DVOC ===
+DVOC Institute Private Limited is a specialized IT vocational training institute in Mumbai focused on practical, skill-based education.
+Vision: To be the best in delivering high-quality vocational programs across India.
+Mission: Bridge the gap between formal education and industry-required skills; make students job-ready for the future.
+Key highlights: expert faculty, NSDC-recognized certificates, concept and practical oriented training, live classroom sessions, small batch sizes, advisory board with 30+ years experience, 1 lakh+ students trained, 5,000+ students placed.
+
+=== FOUNDER ===
+Ashish Bafna – Founder and Chairman of DVOC Institute Pvt Ltd.
+- Philosophy: "Be the change you want to be."
+- Started career in 1996; 26+ years in the Ed-tech industry.
+- Previously Director of: Ashman Computers Pvt Ltd, Fellowship Computer Centre Pvt Ltd, Netsoft Computer Education Pvt Ltd, Hardsoft Learning Centre Pvt Ltd.
+- Business Partner with NIIT; set up multiple centres across prime Mumbai locations.
+- Awards: Excellence in Placements, Knight Ride, Best Education Delivery, Customer Delight.
+- Led a team of 120+ employees; trained 1 lakh+ students; placed 5,000+ students across IT, BFSI, Accounting, Designing, Animation, Digital Marketing, Analytics.
+
+=== ADVISORY BOARD ===
+- Francis Pinto: CTO of Edulab; faculty in Data Science at SDBI; international certifications SCJP and CEH; guest professor at KC College and Wilson College; ex-NIITian with focus on training.
+- Yash Mehta: Partner at StudyCloud.in; MBA from Hult International Business School San Francisco; 5+ years in education; StudyCloud serves 1.5 lakh students daily across 122 schools.
+- Ajay Mehta: Partner at CBM Education Systems LLP; Chartered Accountant; 30+ years in education sector; CBM serves 900+ schools nationwide; trained 10 lakh+ students.
+- Shailesh Bhimani: Founder of Avion Cloud Solutions; B.E. from VJTI; 25 years IT experience; Google Cloud partner (Professional Cloud Solutions, Cloud Architect, Data Engineer certified); deployed GSuite for education across many schools and colleges in India.
+
+=== BRANCHES & CONTACT ===
+- Andheri: 101, 1st Floor, Matru Chhaya Building, Old Nagardas Road, Andheri East, Mumbai 400069. Mobile: 8591597238
+- Vile Parle: 103, 1st Floor, Hari Leela, Off Nehru Road, Opp HDFC Bank, Vile Parle East, Mumbai 400057. Mobile: 9820085940
+- South Mumbai / Grant Road: Fellowship School, Near August Kranti Maidan, Grant Road West, Mumbai 400026. Mobile: 8591595733
+- Main Phone: +91 7021733916 | WhatsApp: wa.link/qucno2 | Email: info@dvoc.in
+- Social: @DVOC_INSTITUTE on Facebook, Instagram, Twitter, LinkedIn
+
+=== COURSES WITH FEES & DURATION ===
+
+1. Advanced Program in Full Stack Software Development
+   Duration: 524 hours | Fee: ₹1,80,000 + 18% GST | Rating: 4.5/5
+   For: College students (dual qualification, can be done alongside college). Recommended after class 12.
+   Curriculum (7 terms): C++, HTML5, Python, MySQL, Data Structures, Bootstrap/jQuery, Java, Agile/Git, JSP/Servlet, Hibernate/Spring, NodeJS, React, Angular, Cloud Deployment, AI, Machine Learning + Capstone Project + Interview Prep.
+   Career roles: Full Stack Developer, Application Developer, Front/Back End Developer, Web Developer, UI Developer.
+
+2. Advanced Program in FinTech and Business Analytics
+   Duration: 492 hours | Fee: ₹1,70,000 + 18% GST | Rating: 4.5/5
+   For: College students (dual qualification). Recommended after class 12.
+   Curriculum (7 terms): MS Office, Advanced Excel, Tally Prime (basics to advanced + GST), Financial Accounting, Tableau, Power BI, SQL, Python, R Programming, Blockchain in Finance, AI, Machine Learning, Portfolio Management, Live Market Analysis + Capstone Project.
+   Special: Tally certification after every term.
+   Career roles: Business Analyst, Financial Consultant, Financial Analyst, Investment Analyst, System Analyst, Risk & Compliance Advisor.
+
+3. Advanced Program in Data Science, ML and Generative AI
+   Duration: Not listed | For: College students (dual qualification). Enquire for details.
+
+4. Advanced Program in Java Full Stack Development
+   Duration: Not listed | For: College students. Enquire for details.
+
+5. Professional Program in Digital Marketing
+   Duration: 110 hours | Fee: Enquire for details | Rating: Not listed
+   Curriculum: Traditional vs Digital Marketing, Website Creation, Blogging, Google Analytics, SEO, Google Ads, Social Media Marketing (Facebook/Instagram/LinkedIn/Twitter/YouTube), Email Marketing, E-commerce, Resume Building + Final Project.
+   Career roles: Digital Marketing Executive, SEO Specialist, SMM Expert, SEM Specialist, Content Marketer, Email Marketing Specialist, Paid Search Specialist.
+
+6. Professional Program in Data Analytics
+   Duration: Not listed | Fee: Enquire for details. Tools: Excel, SQL, Power BI, Tableau, Python.
+   Career roles: Data Analyst and related.
+
+7. Professional Certificate in AI Essentials
+   Duration: 36 hours | Fee: ₹10,000 + 18% GST | Rating: 4.8/5 | NSDC-Recognized Certificate
+   For: Students, working professionals, entrepreneurs, beginners — anyone.
+   Curriculum: Foundation of AI, AI in Presentation & Communication, AI in Graphic Design & Video, AI in Digital Marketing & Content, AI in Coding & Data Analytics, AI in Finance & Banking, AI in Resume Building & Interview Prep.
+   Tools covered: ChatGPT, Gemini, Midjourney, CanvaAI, Perplexity, ElevenLabs and others.
+
+8. Foundation in Graphic Designing
+   Duration: 60 hours | Fee: ₹17,000 + 18% GST | Rating: 4.7/5
+   Curriculum: Concepts of Graphics, Digital Design, Basic Art, Print Design, Logo & Brochure Design, Leaflets/Catalogs/Magazines, Media Publishing, Portfolio Building.
+   Tools: Adobe Photoshop, Adobe Illustrator, Adobe InDesign.
+   Career roles: Graphic Designer, Layout Artist, Digital Production Artist, Visualizer, Illustrator.
+
+9. Foundation in Information Technology
+   Duration: Not listed | Fee: Enquire | For: Beginners, all-round practical IT training.
+
+10. Certificate in Digital Skills & GenAI (Career-Edge)
+    Duration: Not listed | Fee: Enquire | For: Class 10 & 12 students; summer program to learn fundamentals + AI tools.
+
+11. Financial Accounting using Tally Prime
+    Duration: Not listed | Fee: Enquire | Covers: Tally Prime from scratch, advanced accounting, GST, financial statements.
+
+12. Advanced Excel
+    Duration: Not listed | Fee: Enquire | Covers: Business concepts + hands-on MS Excel for data analysis and presentation.
+
+13. Certificate in Digital Marketing
+    Duration: Not listed | Fee: Enquire | Practical digital marketing training.
+
+14. Programming with Python
+    Duration: Not listed | Fee: Enquire | In-depth Python modules step by step.
+
+15. Programming in Java / Java using BlueJ
+    Duration: Not listed | Fee: Enquire | Complete Java developer training.
+
+16. Programming using C++
+    Duration: Not listed | Fee: Enquire | OOPs, loops, functions, conditional statements.
+
+17. Web Designing with HTML5
+    Duration: Not listed | Fee: Enquire | Latest web design standards and practices.
+
+18. Build a Mobile App
+    Duration: Not listed | Fee: Enquire | Mobile app development; publish on Play Store.
+
+19. Full Stack Development (shorter version)
+    Duration: Not listed | Fee: Enquire | Web development, databases, full-stack projects.
+
+20. Advanced Full Stack Development (upcoming)
+21. Advanced Program in Finance, Accounting and Business Analytics (longer version with more depth)
+22. Certificate in Graphic Designing (more in-depth than Foundation)
+
+=== ADMISSIONS & ENROLLMENT ===
+- Visit any branch OR fill the online form at dvoc.in.
+- Academic counsellors guide you through the process.
+- Payment methods: Net Banking, Google Pay, Paytm; also accepted in-person at branches.
+- Free demos and workshops available for selected courses before committing.
+
+=== PLACEMENT ASSISTANCE ===
+DVOC provides: resume building, interview preparation, and referral of candidates to companies.
+Placement is not guaranteed but actively supported.
+Alumni placed at: SBI Life Insurance, Kotak Mahindra Bank, TATA AIG, Insync Analytics, Tibro Pvt. Ltd., Infomatics, and more.
+
+=== REFUND POLICY ===
+- No refund if admission cancelled due to eligibility failure or document verification issues.
+- No refund or transfer of fees to another program or candidate.
+- No refund if cancelled due to disciplinary/behavioural issues.
+- Other cases: Management takes final decision.
+
+=== YOUR ROLE ===
+- Help students and parents with questions about courses, fees, admissions, batches, placements, and policies.
+- Use simple, encouraging, warm language.
+- For specific fee details not listed, exact upcoming batch schedules, or counselling, direct to: +91 7021733916 or info@dvoc.in.
+- Always encourage — DVOC's mission is to make every student job-ready.`;
+
+
+  const btn = document.getElementById('bubble-btn');
+  const win = document.getElementById('chat-window');
+  const msgs = document.getElementById('chat-messages');
+  const input = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+
+  // Points to your Node.js proxy server
+  const SERVER_URL = "/api/chat";
+
+  const conversationHistory = [];
+
+  btn.addEventListener('click', () => {
+    win.classList.toggle('open');
+    if (win.classList.contains('open')) input.focus();
+  });
+
+  function addMsg(text, role) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + role;
+    d.textContent = text;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+    return d;
+  }
+
+  function showTyping() {
+    const t = document.createElement('div');
+    t.className = 'typing';
+    t.innerHTML = '<span></span><span></span><span></span>';
+    msgs.appendChild(t);
+    msgs.scrollTop = msgs.scrollHeight;
+    return t;
+  }
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+
+    addMsg(text, 'user');
+    conversationHistory.push({ role: 'user', content: text });
+
+    const typing = showTyping();
+
+    try {
+      const response = await fetch(SERVER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: SYSTEM_PROMPT,
+          messages: conversationHistory
+        })
+      });
+
+      const data = await response.json();
+      typing.remove();
+
+      const reply = data.content?.[0]?.text || 'Sorry, I could not get a response. Please try again.';
+      conversationHistory.push({ role: 'assistant', content: reply });
+      addMsg(reply, 'bot');
+    } catch (err) {
+      typing.remove();
+      addMsg('Oops! Something went wrong. Please try again.', 'bot');
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+</script>
+</body>
+</html>

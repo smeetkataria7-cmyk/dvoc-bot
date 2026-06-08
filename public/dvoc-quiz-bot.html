@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DVOC Course Finder</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  #chat-bubble { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+
+  #bubble-btn {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: #534AB7; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(83,74,183,0.4);
+    transition: transform 0.15s;
+  }
+  #bubble-btn:hover { transform: scale(1.07); }
+  #bubble-btn i { font-size: 26px; color: #fff; }
+
+  #chat-window {
+    position: absolute; bottom: 70px; right: 0;
+    width: 360px; background: #fff;
+    border: 1px solid #e5e5e5; border-radius: 16px;
+    overflow: hidden; display: none; flex-direction: column;
+    max-height: 540px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+  }
+  #chat-window.open { display: flex; }
+
+  #chat-header {
+    background: #534AB7; padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  #chat-header .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #chat-header .avatar i { font-size: 20px; color: #fff; }
+  #chat-header .info p { color: #fff; font-size: 15px; font-weight: 600; }
+  #chat-header .info span { color: rgba(255,255,255,0.75); font-size: 12px; }
+
+  #progress-bar-wrap { background: rgba(255,255,255,0.2); height: 4px; flex-shrink: 0; }
+  #progress-bar { background: #fff; height: 4px; width: 0%; transition: width 0.4s; }
+
+  #chat-messages {
+    flex: 1; overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: #fafafa;
+  }
+
+  .msg {
+    max-width: 85%; padding: 10px 14px; border-radius: 16px;
+    font-size: 14px; line-height: 1.5;
+  }
+  .msg.bot {
+    background: #fff; color: #222;
+    border: 1px solid #eee; border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .msg.user {
+    background: #534AB7; color: #fff;
+    border-bottom-right-radius: 4px; align-self: flex-end;
+  }
+  .msg.recommendation {
+    background: linear-gradient(135deg, #534AB7, #7B74D4);
+    color: #fff; max-width: 95%; align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .options-wrap { display: flex; flex-direction: column; gap: 7px; align-self: flex-start; width: 100%; max-width: 95%; }
+  .opt-btn {
+    background: #fff; border: 1.5px solid #534AB7;
+    color: #534AB7; border-radius: 20px;
+    padding: 8px 16px; font-size: 13px; cursor: pointer;
+    text-align: left; transition: all 0.15s;
+  }
+  .opt-btn:hover { background: #534AB7; color: #fff; }
+  .opt-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .typing {
+    display: flex; gap: 5px; align-items: center;
+    padding: 10px 14px; background: #fff; border: 1px solid #eee;
+    border-radius: 16px; border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #aaa; animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,60%,100%{opacity:0.2} 30%{opacity:1} }
+
+  #chat-input-row {
+    display: flex; gap: 8px; padding: 10px 12px;
+    border-top: 1px solid #eee; background: #fff; flex-shrink: 0;
+  }
+  #chat-input-row input {
+    flex: 1; border: 1px solid #ddd; border-radius: 20px;
+    padding: 9px 14px; font-size: 14px; outline: none;
+    background: #fff; color: #222;
+  }
+  #chat-input-row input:focus { border-color: #534AB7; }
+  #send-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #534AB7; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  #send-btn i { font-size: 17px; color: #fff; }
+
+  .course-card {
+    background: linear-gradient(135deg, #534AB7, #7B74D4);
+    color: #fff; border-radius: 14px; padding: 14px;
+    font-size: 13px; line-height: 1.6; align-self: flex-start; max-width: 95%;
+  }
+  .course-card h3 { font-size: 15px; margin-bottom: 8px; }
+  .course-card .tag {
+    display: inline-block; background: rgba(255,255,255,0.2);
+    border-radius: 10px; padding: 2px 8px; font-size: 11px; margin: 2px 2px 6px 0;
+  }
+
+  .restart-btn {
+    background: none; border: 1.5px solid #534AB7; color: #534AB7;
+    border-radius: 20px; padding: 7px 16px; font-size: 13px;
+    cursor: pointer; align-self: flex-start; margin-top: 4px;
+  }
+  .restart-btn:hover { background: #534AB7; color: #fff; }
+</style>
+</head>
+<body>
+
+<div id="chat-bubble">
+  <div id="chat-window">
+    <div id="chat-header">
+      <div class="avatar"><i class="ti ti-school"></i></div>
+      <div class="info">
+        <p>DVOC Course Finder</p>
+        <span>Find your perfect course in 2 mins</span>
+      </div>
+    </div>
+    <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-row" style="display:none;">
+      <input type="text" id="user-input" placeholder="Type here…" />
+      <button id="send-btn"><i class="ti ti-send"></i></button>
+    </div>
+  </div>
+  <button id="bubble-btn" aria-label="Open course finder">
+    <i class="ti ti-school"></i>
+  </button>
+</div>
+
+<script>
+  // 🔑 PASTE YOUR ANTHROPIC API KEY HERE
+  const ANTHROPIC_API_KEY = "YOUR_API_KEY_HERE";
+
+  // ── QUIZ DATA ──────────────────────────────────────────────
+  const QUESTIONS = {
+    Q1: {
+      text: "What is your current education level?",
+      options: [
+        { label: "10th Pass", value: "10th Pass", next: "Q2" },
+        { label: "12th Pass", value: "12th Pass", next: "Q2" },
+        { label: "Diploma", value: "Diploma", next: "Q2" },
+        { label: "Undergraduate / Pursuing Degree", value: "Undergraduate", next: "Q2" },
+        { label: "Graduate", value: "Graduate", next: "Q2" },
+        { label: "Postgraduate", value: "Postgraduate", next: "Q2" },
+      ]
+    },
+    Q2: {
+      text: "Which of the following best describes you?",
+      options: [
+        { label: "Student", value: "Student", next: "Q3" },
+        { label: "Fresher / Job Seeker", value: "Job Seeker", next: "Q3" },
+        { label: "Working Professional", value: "Working Professional", next: "Q3" },
+        { label: "Business Owner", value: "Business Owner", next: "Q3" },
+        { label: "Freelancer", value: "Freelancer", next: "Q3" },
+      ]
+    },
+    Q3: {
+      text: "Which career area are you most interested in?",
+      options: [
+        { label: "💻 Digital Marketing & Social Media", value: "Digital Marketing", next: "Q4" },
+        { label: "📊 Data Analytics & Business Intelligence", value: "Data Analytics", next: "Q4" },
+        { label: "🖥️ Software Development & Coding", value: "Full Stack Development", next: "Q4" },
+        { label: "🤖 AI & Automation", value: "AI Essentials", next: "Q4" },
+        { label: "💰 Finance & Business Analytics", value: "Fintech & Business Analytics", next: "Q4" },
+        { label: "🎨 Graphic Design & Creativity", value: "Graphic Design", next: "Q4" },
+      ]
+    },
+    Q4: {
+      text: "What is your main goal for joining a course?",
+      options: [
+        { label: "Get a job", value: "Get a Job", next: "Q5" },
+        { label: "Upgrade my skills", value: "Upgrade Skills", next: "Q5" },
+        { label: "Switch my career", value: "Career Switch", next: "Q5" },
+        { label: "Grow my business", value: "Grow Business", next: "Q5" },
+        { label: "Start freelancing", value: "Freelancing", next: "Q5" },
+        { label: "Learn new technology", value: "Learn Technology", next: "Q5" },
+      ]
+    },
+    Q5: {
+      text: "Do you have any prior experience in this field?",
+      options: [
+        { label: "No experience", value: "No Experience", next: "Q6" },
+        { label: "Beginner", value: "Beginner", next: "Q6" },
+        { label: "Intermediate", value: "Intermediate", next: "Q6" },
+        { label: "Experienced", value: "Experienced", next: "Q6" },
+      ]
+    },
+    Q6: {
+      text: "Which DVOC center is most convenient for you?",
+      options: [
+        { label: "📍 Andheri East", value: "Andheri East", next: "Q7" },
+        { label: "📍 Vile Parle East", value: "Vile Parle East", next: "Q7" },
+        { label: "📍 Grant Road West", value: "Grant Road West", next: "Q7" },
+        { label: "🌐 Need Online Option", value: "Online Option", next: "Q7" },
+      ]
+    },
+    Q7: {
+      text: "When are you planning to start?",
+      options: [
+        { label: "⚡ Immediately", value: "Immediately", next: "Recommendation" },
+        { label: "📅 Within 1 Month", value: "Within 1 Month", next: "Recommendation" },
+        { label: "🗓️ Within 3 Months", value: "Within 3 Months", next: "Recommendation" },
+        { label: "👀 Just Exploring", value: "Just Exploring", next: "Recommendation" },
+      ]
+    }
+  };
+
+  const COURSES = {
+    "Digital Marketing": {
+      name: "Professional Program in Digital Marketing",
+      duration: "110 hours", mode: "Offline",
+      learn: "SEO, Meta Ads, Google Ads, Social Media, Canva, Analytics",
+      careers: "Digital Marketer, Social Media Executive, Performance Marketing Executive"
+    },
+    "Data Analytics": {
+      name: "Professional Program in Data Analytics",
+      duration: "180 hours", mode: "Offline",
+      learn: "Excel, SQL, Power BI, Python, Analytics Basics",
+      careers: "Data Analyst, Business Analyst"
+    },
+    "Full Stack Development": {
+      name: "Advanced Program in Full Stack Development",
+      duration: "524 hours", mode: "Offline",
+      learn: "Front-end, Back-end, Databases, Project Building",
+      careers: "Full Stack Developer, Web Developer"
+    },
+    "Fintech & Business Analytics": {
+      name: "Professional Program in FinTech & Business Analytics",
+      duration: "492 hours", mode: "Offline",
+      learn: "Finance, Analytics, FinTech Tools, Business Data Skills",
+      careers: "Business Analyst, FinTech Analyst"
+    },
+    "AI Essentials": {
+      name: "Professional Certificate in AI Essentials",
+      duration: "25–40 hours", mode: "Offline",
+      learn: "Practical AI tools and real-world use cases",
+      careers: "AI-enabled professional skills"
+    },
+    "Graphic Design": {
+      name: "Professional Program / Certificate in Graphic Design",
+      duration: "To confirm with counselor", mode: "Offline",
+      learn: "Design Basics, Canva, Photoshop / Illustrator",
+      careers: "Graphic Designer, Social Media Designer"
+    }
+  };
+
+  // ── STATE ──────────────────────────────────────────────────
+  const TOTAL_STEPS = 7;
+  let currentStep = 0;
+  let answers = {};
+  let leadStep = null; // null | 'name' | 'phone' | 'email' | 'time' | 'consent' | 'done'
+
+  // ── DOM ────────────────────────────────────────────────────
+  const bubbleBtn = document.getElementById('bubble-btn');
+  const chatWin = document.getElementById('chat-window');
+  const msgsEl = document.getElementById('chat-messages');
+  const progressBar = document.getElementById('progress-bar');
+  const inputRow = document.getElementById('chat-input-row');
+  const userInput = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+
+  bubbleBtn.addEventListener('click', () => {
+    chatWin.classList.toggle('open');
+    if (chatWin.classList.contains('open') && msgsEl.children.length === 0) startQuiz();
+  });
+
+  // ── HELPERS ────────────────────────────────────────────────
+  function scrollBottom() { msgsEl.scrollTop = msgsEl.scrollHeight; }
+
+  function addMsg(text, role = 'bot') {
+    const d = document.createElement('div');
+    d.className = 'msg ' + role;
+    d.textContent = text;
+    msgsEl.appendChild(d);
+    scrollBottom();
+    return d;
+  }
+
+  function showTyping() {
+    const t = document.createElement('div');
+    t.className = 'typing';
+    t.innerHTML = '<span></span><span></span><span></span>';
+    msgsEl.appendChild(t);
+    scrollBottom();
+    return t;
+  }
+
+  function setProgress(step) {
+    progressBar.style.width = Math.round((step / TOTAL_STEPS) * 100) + '%';
+  }
+
+  function showOptions(options) {
+    const wrap = document.createElement('div');
+    wrap.className = 'options-wrap';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => {
+        // disable all buttons
+        wrap.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+        btn.style.background = '#534AB7';
+        btn.style.color = '#fff';
+        addMsg(opt.label, 'user');
+        setTimeout(() => handleAnswer(opt), 500);
+      });
+      wrap.appendChild(btn);
+    });
+    msgsEl.appendChild(wrap);
+    scrollBottom();
+  }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ── QUIZ FLOW ──────────────────────────────────────────────
+  async function startQuiz() {
+    await delay(400);
+    addMsg("Hi 👋 Welcome to DVOC Institute! I'll help you find the perfect course in just a few quick questions.");
+    await delay(800);
+    askQuestion('Q1');
+  }
+
+  async function askQuestion(qid) {
+    const t = showTyping();
+    await delay(800);
+    t.remove();
+    const q = QUESTIONS[qid];
+    addMsg(q.text);
+    await delay(200);
+    showOptions(q.options);
+  }
+
+  async function handleAnswer(opt) {
+    const varMap = { Q1:'education_level', Q2:'user_type', Q3:'career_interest', Q4:'career_goal', Q5:'experience_level', Q6:'preferred_center', Q7:'joining_timeframe' };
+    // find which question this option belongs to
+    for (const [qid, q] of Object.entries(QUESTIONS)) {
+      if (q.options.includes(opt)) { answers[varMap[qid]] = opt.value; break; }
+    }
+    // figure out next
+    if (opt.next === 'Recommendation') {
+      currentStep = TOTAL_STEPS;
+      setProgress(TOTAL_STEPS);
+      await showRecommendation();
+    } else {
+      currentStep++;
+      setProgress(currentStep);
+      askQuestion(opt.next);
+    }
+  }
+
+  async function showRecommendation() {
+    const t = showTyping();
+    await delay(1200);
+    t.remove();
+
+    addMsg("Great! Based on your answers, here is the most suitable course for you 🎓");
+    await delay(400);
+
+    const interest = answers.career_interest || 'Digital Marketing';
+    const course = COURSES[interest] || COURSES['Digital Marketing'];
+    const center = answers.preferred_center || 'your nearest branch';
+
+    const card = document.createElement('div');
+    card.className = 'course-card';
+    card.innerHTML = `
+      <h3>⭐ ${course.name}</h3>
+      <span class="tag">⏱ ${course.duration}</span>
+      <span class="tag">📍 ${course.mode}</span>
+      <span class="tag">🏫 ${center}</span>
+      <br/>
+      <strong>You'll learn:</strong><br/>${course.learn}<br/><br/>
+      <strong>Career options:</strong><br/>${course.careers}<br/><br/>
+      <em>💬 Fees will be shared by our counselor as per latest availability.</em>
+    `;
+    msgsEl.appendChild(card);
+    scrollBottom();
+
+    await delay(800);
+    addMsg("To connect you with a counselor, I'll need a few quick details 😊");
+    await delay(600);
+    leadStep = 'name';
+    addMsg("Please share your full name.");
+    inputRow.style.display = 'flex';
+    userInput.focus();
+  }
+
+  // ── LEAD CAPTURE ───────────────────────────────────────────
+  let leadData = {};
+  const callTimeOptions = [
+    { label: "📞 Today", value: "Today", next: null },
+    { label: "📞 Tomorrow", value: "Tomorrow", next: null },
+    { label: "🌅 Morning (9am–12pm)", value: "Morning", next: null },
+    { label: "☀️ Afternoon (12pm–4pm)", value: "Afternoon", next: null },
+    { label: "🌆 Evening (4pm–7pm)", value: "Evening", next: null },
+  ];
+  const consentOptions = [
+    { label: "✅ Yes, please contact me", value: "Yes", next: null },
+    { label: "❌ No thanks", value: "No", next: null },
+  ];
+
+  function handleLeadInput(text) {
+    if (!text.trim()) return;
+    addMsg(text, 'user');
+    inputRow.style.display = 'none';
+    userInput.value = '';
+
+    if (leadStep === 'name') {
+      leadData.name = text;
+      leadStep = 'phone';
+      setTimeout(() => { addMsg("Thanks! Please share your mobile number."); inputRow.style.display='flex'; userInput.focus(); }, 600);
+    } else if (leadStep === 'phone') {
+      if (!/^\d{10}$/.test(text.replace(/\s/g,''))) {
+        addMsg("Please enter a valid 10-digit mobile number.");
+        inputRow.style.display = 'flex'; userInput.focus(); return;
+      }
+      leadData.phone = text;
+      leadStep = 'email';
+      setTimeout(() => { addMsg("Got it! Please share your email address (optional — type 'skip' to skip)."); inputRow.style.display='flex'; userInput.focus(); }, 600);
+    } else if (leadStep === 'email') {
+      leadData.email = text.toLowerCase() === 'skip' ? '' : text;
+      leadStep = 'time';
+      setTimeout(() => {
+        addMsg("What is the best time for our counselor to contact you?");
+        showCallTimeOptions();
+      }, 600);
+    }
+  }
+
+  function showCallTimeOptions() {
+    const wrap = document.createElement('div');
+    wrap.className = 'options-wrap';
+    callTimeOptions.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => {
+        wrap.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+        btn.style.background = '#534AB7'; btn.style.color = '#fff';
+        leadData.callTime = opt.value;
+        addMsg(opt.label, 'user');
+        leadStep = 'consent';
+        setTimeout(() => {
+          addMsg("Can our counselor contact you on WhatsApp / call with course details?");
+          showConsentOptions();
+        }, 600);
+      });
+      wrap.appendChild(btn);
+    });
+    msgsEl.appendChild(wrap);
+    scrollBottom();
+  }
+
+  function showConsentOptions() {
+    const wrap = document.createElement('div');
+    wrap.className = 'options-wrap';
+    consentOptions.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => {
+        wrap.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+        btn.style.background = '#534AB7'; btn.style.color = '#fff';
+        leadData.consent = opt.value;
+        addMsg(opt.label, 'user');
+        leadStep = 'done';
+        setTimeout(showThankYou, 600);
+      });
+      wrap.appendChild(btn);
+    });
+    msgsEl.appendChild(wrap);
+    scrollBottom();
+  }
+
+  // ── SEND LEAD VIA NODE SERVER → GOOGLE SHEETS ─────────────
+  const LEAD_URL = "/api/lead";
+
+  async function sendLeadToSheet() {
+    const course = COURSES[answers.career_interest] || COURSES['Digital Marketing'];
+    const payload = {
+      name: leadData.name || '',
+      phone: leadData.phone || '',
+      email: leadData.email || '',
+      callTime: leadData.callTime || '',
+      consent: leadData.consent || '',
+      education: answers.education_level || '',
+      userType: answers.user_type || '',
+      interest: answers.career_interest || '',
+      goal: answers.career_goal || '',
+      experience: answers.experience_level || '',
+      center: answers.preferred_center || '',
+      joiningTime: answers.joining_timeframe || '',
+      recommendedCourse: course.name,
+      timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+    };
+    try {
+      const r = await fetch(LEAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) throw new Error('Server error: ' + r.status);
+    } catch(e) {
+      console.error('Failed to send lead:', e);
+    }
+  }
+
+  async function showThankYou() {
+    const t = showTyping();
+    await delay(1000);
+    t.remove();
+
+    // Send lead data to Google Sheets
+    sendLeadToSheet();
+
+    const course = COURSES[answers.career_interest] || COURSES['Digital Marketing'];
+    addMsg(`Thank you, ${leadData.name}! 🎉 Our DVOC counselor will contact you ${leadData.callTime ? 'on ' + leadData.callTime : 'shortly'} to share details about the ${course.name}, latest fees, and batch schedule.`);
+    await delay(600);
+    addMsg("📞 +91 7021733916  |  ✉️ info@dvoc.in");
+    await delay(600);
+
+    const restartBtn = document.createElement('button');
+    restartBtn.className = 'restart-btn';
+    restartBtn.textContent = '🔄 Start over';
+    restartBtn.addEventListener('click', () => {
+      msgsEl.innerHTML = '';
+      answers = {}; leadData = {}; leadStep = null; currentStep = 0;
+      setProgress(0);
+      inputRow.style.display = 'none';
+      startQuiz();
+    });
+    msgsEl.appendChild(restartBtn);
+    scrollBottom();
+  }
+
+  // ── INPUT HANDLER ──────────────────────────────────────────
+  sendBtn.addEventListener('click', () => handleLeadInput(userInput.value));
+  userInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleLeadInput(userInput.value); });
+</script>
+</body>
+</html>
