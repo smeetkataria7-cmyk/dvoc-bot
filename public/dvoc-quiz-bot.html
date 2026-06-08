@@ -157,8 +157,7 @@
 </div>
 
 <script>
-  // 🔑 PASTE YOUR ANTHROPIC API KEY HERE
-  const ANTHROPIC_API_KEY = "YOUR_API_KEY_HERE";
+  // (No API key needed here — this quiz bot only sends lead data to the server.)
 
   // ── QUIZ DATA ──────────────────────────────────────────────
   const QUESTIONS = {
@@ -501,7 +500,7 @@
   }
 
   // ── SEND LEAD VIA NODE SERVER → GOOGLE SHEETS ─────────────
-  const LEAD_URL = "/api/lead";
+  const LEAD_URL = "https://dvoc-bot.onrender.com/api/lead";
 
   async function sendLeadToSheet() {
     const course = COURSES[answers.career_interest] || COURSES['Digital Marketing'];
