@@ -153,23 +153,7 @@
 </style>
 </head>
 <body>
-<div id="api-warning" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff4444;color:#fff;text-align:center;padding:10px;font-size:14px;z-index:99999;">
-  ⚠️ API Key missing! Open the HTML file and paste your Anthropic API key where it says YOUR_API_KEY_HERE
-</div>
-<script>
-  if (!window.__dvoc_key_checked) {
-    window.__dvoc_key_checked = true;
-    window.addEventListener('DOMContentLoaded', () => {
-      // check after script runs
-      setTimeout(() => {
-        const k = typeof ANTHROPIC_API_KEY !== 'undefined' ? ANTHROPIC_API_KEY : '';
-        if (!k || k === 'YOUR_API_KEY_HERE') {
-          document.getElementById('api-warning').style.display = 'block';
-        }
-      }, 500);
-    });
-  }
-</script>
+<!-- (API key lives safely on the proxy server, so no client-side key check is needed) -->
 
 <div id="chat-bubble">
   <div id="chat-window">
@@ -334,7 +318,7 @@ Alumni placed at: SBI Life Insurance, Kotak Mahindra Bank, TATA AIG, Insync Anal
   const sendBtn = document.getElementById('send-btn');
 
   // Points to your Node.js proxy server
-  const SERVER_URL = "/api/chat";
+  const SERVER_URL = "https://dvoc-bot.onrender.com/api/chat";
 
   const conversationHistory = [];
 
